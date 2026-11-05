@@ -11,7 +11,7 @@ Inspiriert von einem Papier-und-Stift-Spiel mit Jets, Würfel und Laser-Linien.
 2. Würfeln, dann einen eigenen Jet wählen und seinen Laser **genau so viele Kästchen** weiterziehen, wie der Würfel zeigt. Der Laser geht dort weiter, wo er zuletzt aufgehört hat.
 3. Gezogen wird Kästchen für Kästchen: geradeaus oder um die Ecke, nie schräg.
 4. Laser dürfen keine anderen Laser kreuzen, nicht durch eigene Jets und nicht über den Rand.
-5. Erreicht ein Laser ein Kästchen eines gegnerischen Jets (gestrichelter Rahmen), ist der Jet abgeschossen. Der Zug endet sofort.
+5. Ein gegnerischer Jet (gestrichelter Rahmen) wird nur mit der **genauen Würfelzahl** abgeschossen: Der letzte Schritt des Wurfs muss in eines seiner Kästchen führen. Bei zu hohem Wurf kommt der Laser nicht durch den Jet hindurch und muss anders gezogen werden (z. B. mit einem Umweg).
 6. Bei einer Sechs wird nach dem Zug noch einmal gewürfelt.
 7. Kommt der Laser nicht mehr weiter, endet der Zug früher. Kann ein Spieler gar nicht ziehen, verfällt sein Zug.
 8. Wer zuerst alle drei gegnerischen Jets abschießt, gewinnt. Können beide nicht mehr ziehen, gewinnt, wer mehr Jets übrig hat.

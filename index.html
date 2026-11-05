@@ -285,7 +285,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       <li>Würfle. Wähle dann einen deiner Jets und zieh seinen Laser <b>genau so viele Kästchen</b> weiter, wie der Würfel zeigt. Der Laser geht dort weiter, wo er zuletzt aufgehört hat.</li>
       <li>Gezogen wird Kästchen für Kästchen: geradeaus oder um die Ecke, nie schräg.</li>
       <li>Ein Laser darf keinen anderen Laser kreuzen, nicht durch die eigenen Jets und nicht über den Rand.</li>
-      <li>Erreicht dein Laser ein Kästchen eines gegnerischen Jets (gestrichelter Rahmen), ist der Jet <b>abgeschossen</b>. Der Zug endet sofort.</li>
+      <li>Ein gegnerischer Jet (gestrichelter Rahmen) wird nur mit der <b>genauen Würfelzahl</b> abgeschossen: Der <b>letzte</b> Schritt deines Wurfs muss in eines seiner Kästchen führen. Würfelst du mehr, kommst du nicht durch den Jet hindurch und musst den Laser anders ziehen, zum Beispiel mit einem Umweg.</li>
       <li>Bei einer <b>Sechs</b> darfst du nach deinem Zug noch einmal würfeln.</li>
       <li>Kommt der Laser nicht mehr weiter, endet der Zug früher. Kann ein Spieler gar nicht ziehen, verfällt sein Zug.</li>
       <li>Wer zuerst alle drei gegnerischen Jets abschießt, gewinnt. Können beide nicht mehr ziehen, gewinnt, wer mehr Jets übrig hat.</li>
@@ -365,20 +365,22 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 
   /* ---------- Regeln ---------- */
   const tipOf = (S, j) => { const p = S.jets[j].path; return p.length ? p[p.length - 1] : LAYOUT[j].nose; };
-  function legalSteps(S, j) {
+  // left = verbleibende Schritte dieses Wurfs. Ein Treffer ist nur mit dem letzten Schritt erlaubt (genaue Würfelzahl).
+  // Ohne left wird geprüft, ob der Jet mit irgendeinem Wurf noch ziehen könnte.
+  function legalSteps(S, j, left) {
     const o = owner(j), res = [];
     for (const n of NB[tipOf(S, j)]) {
       const v = S.cells[n];
       if (v === 0) res.push({ n, hit: -1 });
       else if (v >= 10) {
         const k = v - 10;
-        if (owner(k) !== o && S.jets[k].alive) res.push({ n, hit: k });
+        if (owner(k) !== o && S.jets[k].alive && (left === undefined || left === 1)) res.push({ n, hit: k });
       }
     }
     return res;
   }
-  const canJetMove = (S, j) => S.jets[j].alive && legalSteps(S, j).length > 0;
-  function anyMoves(S, side) { for (let j = side * 3; j < side * 3 + 3; j++) if (canJetMove(S, j)) return true; return false; }
+  const canJetMove = (S, j, left) => S.jets[j].alive && legalSteps(S, j, left).length > 0;
+  function anyMoves(S, side, left) { for (let j = side * 3; j < side * 3 + 3; j++) if (canJetMove(S, j, left)) return true; return false; }
   function aliveCount(S, side) { let n = 0; for (let j = side * 3; j < side * 3 + 3; j++) if (S.jets[j].alive) n++; return n; }
 
   function applyStep(S, j, m) {
@@ -410,8 +412,15 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
     }
     return Infinity;
   }
-  // Wahrscheinlichkeit, mit einem Wurf ein Ziel in d Schritten zu erreichen
-  const pHit = d => d === Infinity ? 0 : d <= 6 ? (7 - d) / 6 : 0.15 * Math.pow(0.8, d - 7);
+  // Grobe Trefferchance im nächsten Wurf bei Abstand d: genau d würfeln, oder eine größere Zahl
+  // gleicher Parität und einen Umweg ziehen (nicht immer möglich, daher halb gewichtet)
+  function pHit(d) {
+    if (d === Infinity) return 0;
+    if (d > 6) return 0.12 * Math.pow(0.8, d - 7);
+    let p = 1 / 6;
+    if (d > 1) for (let r = d + 2; r <= 6; r += 2) p += 0.3 / 6;
+    return p + 0.01 * (7 - d);
+  }
   function evaluate(S, me) {
     let myMax = 0, mySum = 0, enMax = 0, enSum = 0;
     for (let j = 0; j < 6; j++) {
@@ -426,7 +435,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
     const me = S.current, roll = S.roll, leaves = [];
     const path = [];
     function dfs(j, steps) {
-      const opts = steps < roll ? legalSteps(S, j) : [];
+      const opts = steps < roll ? legalSteps(S, j, roll - steps) : [];
       if (opts.length === 0) {
         if (path.length) leaves.push({ j, path: path.slice(), kill: false, score: evaluate(S, me) });
         return;
@@ -494,17 +503,17 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       showFace(st.roll);
       tone(520, 0.08, 'triangle', 0.06);
       const me = st.current, opp = 1 - me;
-      if (!anyMoves(st, me)) {
-        if (!anyMoves(st, opp)) { finishByCount(); return; }
+      if (!anyMoves(st, me, st.roll)) {
+        if (!anyMoves(st, me) && !anyMoves(st, opp)) { finishByCount(); return; }
         st.phase = 'pass';
-        st.flash = `${sideName(me)} ${me === 1 && settings.mode === 'cpu' ? 'kannst' : 'kann'} nicht ziehen. Der Zug verfällt.`;
+        st.flash = `${sideName(me)} ${me === 1 && settings.mode === 'cpu' ? 'kannst' : 'kann'} mit einer ${st.roll} nicht ziehen. Der Zug verfällt.`;
         updatePanel();
         later(() => { st.current = opp; st.phase = 'roll'; updatePanel(); maybeAI(); }, 1500);
         return;
       }
       st.phase = 'move';
       st.active = -1; st.moveSteps = [];
-      if (kbJet < 0 || owner(kbJet) !== me || !canJetMove(st, kbJet)) kbJet = firstMovableJet(me);
+      if (kbJet < 0 || owner(kbJet) !== me || !canJetMove(st, kbJet, st.stepsLeft)) kbJet = firstMovableJet(me);
       updatePanel();
       if (isAI(me)) later(aiExecute, 500);
     }, dur);
@@ -512,7 +521,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
     const g = gen; setTimeout(() => { if (g !== gen) { clearInterval(spin); dieEl.classList.remove('rolling'); } }, dur + 10);
   }
 
-  function firstMovableJet(side) { for (let j = side * 3; j < side * 3 + 3; j++) if (canJetMove(st, j)) return j; return -1; }
+  function firstMovableJet(side) { for (let j = side * 3; j < side * 3 + 3; j++) if (canJetMove(st, j, st.stepsLeft)) return j; return -1; }
 
   function aiExecute() {
     if (st.phase !== 'move' || !isAI(st.current)) return;
@@ -543,8 +552,10 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       return true;
     }
     tone(380 + (st.roll - st.stepsLeft) * 70, 0.07, 'square', 0.035);
-    if (st.stepsLeft <= 0 || legalSteps(st, j).length === 0) {
-      if (st.stepsLeft > 0) st.flash = 'Der Laser steckt fest. Der Zug endet früher.';
+    if (st.stepsLeft <= 0 || legalSteps(st, j, st.stepsLeft).length === 0) {
+      if (st.stepsLeft > 0) st.flash = legalSteps(st, j).some(m => m.hit >= 0)
+        ? 'Treffer nur mit der genauen Zahl. Der Laser bleibt vor dem Jet stehen.'
+        : 'Der Laser steckt fest. Der Zug endet früher.';
       endMove(false);
       return true;
     }
@@ -609,8 +620,8 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   function humanOptions() {
     if (!st || st.phase !== 'move' || isAI(st.current)) return [];
     const res = [];
-    if (st.active >= 0) { for (const m of legalSteps(st, st.active)) res.push({ j: st.active, ...m }); }
-    else for (let j = st.current * 3; j < st.current * 3 + 3; j++) if (st.jets[j].alive) for (const m of legalSteps(st, j)) res.push({ j, ...m });
+    if (st.active >= 0) { for (const m of legalSteps(st, st.active, st.stepsLeft)) res.push({ j: st.active, ...m }); }
+    else for (let j = st.current * 3; j < st.current * 3 + 3; j++) if (st.jets[j].alive) for (const m of legalSteps(st, j, st.stepsLeft)) res.push({ j, ...m });
     return res;
   }
   function tryCell(n, preferJet) {
@@ -964,7 +975,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       e.preventDefault(); undoStep();
     } else if (/^[1-3]$/.test(e.key) && st.phase === 'move' && st.active < 0 && !isAI(st.current)) {
       const j = st.current * 3 + Number(e.key) - 1;
-      if (canJetMove(st, j)) kbJet = j;
+      if (canJetMove(st, j, st.stepsLeft)) kbJet = j;
     } else if (DIRS[e.key] && st.phase === 'move' && !isAI(st.current)) {
       e.preventDefault();
       const j = st.active >= 0 ? st.active : kbJet;
