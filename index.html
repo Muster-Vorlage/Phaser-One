@@ -104,8 +104,20 @@ button:focus-visible, input:focus-visible + span, .die:focus-visible {
 .pcard.turn[data-side="0"] { border-color: var(--blue); }
 .pcard.turn[data-side="1"] { border-color: var(--red); }
 .jets { display: flex; gap: 2px; }
-.mini { width: 30px; height: 30px; }
-.mini.dead { opacity: .4; }
+.mini { width: 30px; height: 30px; display: block; }
+.themes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.themes label { position: relative; min-width: 0; }
+.themes input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.themes label > span {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px; min-height: 52px;
+  background: var(--surface); border: 2px solid var(--line); border-radius: 8px; font-weight: 700; cursor: pointer;
+  min-width: 0; hyphens: auto; overflow-wrap: anywhere;
+}
+.themes img { width: 38px; height: 38px; flex: none; }
+.themes .pair img { width: 30px; height: 30px; }
+.themes .pair { display: flex; flex: none; }
+.themes input:checked + span { border-color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink); }
+.themes input:focus-visible + span { outline: 3px solid var(--blue); outline-offset: 2px; }
 
 .dice-row { display: flex; align-items: center; gap: 14px; }
 .die {
@@ -187,6 +199,9 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   .die { width: 60px; height: 60px; padding: 8px; }
   .die span { width: 10px; height: 10px; }
   .hint { display: none; }
+  .themes label > span { font-size: 13.5px; gap: 6px; padding: 6px 8px; }
+  .themes img { width: 32px; height: 32px; }
+  .themes .pair img { width: 26px; height: 26px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .die.rolling { animation: none; }
@@ -197,7 +212,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 <body>
 <div class="app">
   <header class="top">
-    <h1 class="logo"><span class="b">Kästchen</span>-<span class="r">Jets</span></h1>
+    <h1 class="logo"><span class="b">Kästchen</span>-<span class="r" id="logoWord">Jets</span></h1>
     <div class="top-actions">
       <button class="btn" id="btnRules" type="button">Regeln</button>
       <button class="btn" id="btnSound" type="button" aria-pressed="true">Ton: an</button>
@@ -237,7 +252,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       <div class="row">
         <button class="btn" id="btnUndo" type="button">Schritt zurück</button>
       </div>
-      <p class="hint">Leertaste: würfeln · Pfeiltasten: Laser zeichnen · 1–3: Jet wählen · Rücktaste: Schritt zurück</p>
+      <p class="hint">Leertaste: würfeln · Pfeiltasten: Linie ziehen · 1–3: Figur wählen · Rücktaste: Schritt zurück</p>
       <div class="tally" id="tally"></div>
     </aside>
   </main>
@@ -245,8 +260,17 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 
 <div class="overlay" id="menu">
   <form class="sheet" id="menuForm">
-    <h2><span class="b">Kästchen</span>-<span class="r">Jets</span></h2>
-    <p class="lead">Ein Würfel-Duell auf Kästchenpapier. Würfle, zieh deinen Laser Feld für Feld weiter und schieß die drei gegnerischen Jets ab.</p>
+    <h2><span class="b">Kästchen</span>-<span class="r" id="menuWord">Jets</span></h2>
+    <p class="lead" id="menuLead"></p>
+    <fieldset>
+      <legend>Motto</legend>
+      <div class="themes">
+        <label><input type="radio" name="theme" id="thJets" value="jets" checked><span><img id="icJets" alt="">Flugzeuge</span></label>
+        <label><input type="radio" name="theme" id="thKids" value="kids"><span><span class="pair"><img id="icKids0" alt=""><img id="icKids1" alt=""></span>Buben &amp; Mädchen</span></label>
+        <label><input type="radio" name="theme" id="thUfo" value="ufo"><span><img id="icUfo" alt="">UFOs</span></label>
+        <label><input type="radio" name="theme" id="thPirates" value="pirates"><span><img id="icPirates" alt="">Piratenschiffe</span></label>
+      </div>
+    </fieldset>
     <fieldset>
       <legend>Spielart</legend>
       <div class="seg">
@@ -260,6 +284,13 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
         <label><input type="radio" name="level" id="lvlEasy" value="easy"><span>Leicht</span></label>
         <label><input type="radio" name="level" id="lvlMid" value="mid" checked><span>Mittel</span></label>
         <label><input type="radio" name="level" id="lvlHard" value="hard"><span>Schwer</span></label>
+      </div>
+    </fieldset>
+    <fieldset id="sideSet">
+      <legend>Du spielst</legend>
+      <div class="seg">
+        <label><input type="radio" name="human" id="humanRed" value="1" checked><span id="humanRedLbl">Rot (unten)</span></label>
+        <label><input type="radio" name="human" id="humanBlue" value="0"><span id="humanBlueLbl">Blau (oben)</span></label>
       </div>
     </fieldset>
     <fieldset>
@@ -280,17 +311,8 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 <div class="overlay" id="rulesBox" hidden>
   <div class="sheet" role="dialog" aria-labelledby="rulesTitle">
     <h2 id="rulesTitle">So wird gespielt</h2>
-    <ol class="rules">
-      <li>Jeder Spieler hat drei Jets: <b>Blau</b> oben, <b>Rot</b> unten. Jeder Jet hat einen Laser, der an seiner Nase beginnt.</li>
-      <li>Würfle. Wähle dann einen deiner Jets und zieh seinen Laser <b>genau so viele Kästchen</b> weiter, wie der Würfel zeigt. Der Laser geht dort weiter, wo er zuletzt aufgehört hat.</li>
-      <li>Gezogen wird Kästchen für Kästchen: geradeaus oder um die Ecke, nie schräg.</li>
-      <li>Ein Laser darf keinen anderen Laser kreuzen, nicht durch die eigenen Jets und nicht über den Rand.</li>
-      <li>Ein gegnerischer Jet (gestrichelter Rahmen) wird nur mit der <b>genauen Würfelzahl</b> abgeschossen: Der <b>letzte</b> Schritt deines Wurfs muss in eines seiner Kästchen führen. Würfelst du mehr, kommst du nicht durch den Jet hindurch und musst den Laser anders ziehen, zum Beispiel mit einem Umweg.</li>
-      <li>Bei einer <b>Sechs</b> darfst du nach deinem Zug noch einmal würfeln.</li>
-      <li>Kommt der Laser nicht mehr weiter, endet der Zug früher. Kann ein Spieler gar nicht ziehen, verfällt sein Zug.</li>
-      <li>Wer zuerst alle drei gegnerischen Jets abschießt, gewinnt. Können beide nicht mehr ziehen, gewinnt, wer mehr Jets übrig hat.</li>
-    </ol>
-    <p class="note">Tipp: Dein Laser ist auch eine Mauer. Leg ihn den gegnerischen Lasern in den Weg.</p>
+    <ol class="rules" id="rulesList"></ol>
+    <p class="note">Tipp: Deine Linie ist auch eine Mauer. Leg sie den gegnerischen Linien in den Weg.</p>
     <div class="actions"><button class="btn primary" type="button" id="btnRulesClose">Verstanden</button></div>
   </div>
 </div>
@@ -343,7 +365,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   const POLYS = [WING, mirror(WING), TAIL, mirror(TAIL), CANARD, mirror(CANARD), BODY];
 
   /* ---------- Zustand ---------- */
-  const settings = { mode: 'cpu', level: 'mid', starter: '1' };
+  const settings = { mode: 'cpu', level: 'mid', starter: '1', theme: 'jets', human: 1 };
   let tally = [0, 0];
   let st = null;
   let gen = 0;            // macht alte Timer ungültig
@@ -360,8 +382,46 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       active: -1, moveSteps: [], winner: null, flash: '', lastSide: -1
     };
   }
-  const isAI = side => settings.mode === 'cpu' && side === 0;
-  const sideName = side => settings.mode === 'cpu' ? (side === 0 ? 'Computer' : 'Du') : (side === 0 ? 'Blau' : 'Rot');
+  const isAI = side => settings.mode === 'cpu' && side !== settings.human;
+  const sideName = side => settings.mode === 'cpu' ? (isAI(side) ? 'Computer' : 'Du') : T().sides[side];
+
+  /* ---------- Mottos ---------- */
+  const THEMES = {
+    jets: {
+      word: 'Jets', piece: 'Jet', pieces: 'Jets', start: 1.45, sides: ['Blau', 'Rot'],
+      lineDer: 'Der Laser', lineDen: 'deinen Laser', one: 'Ein gegnerischer Jet', passive: 'abgeschossen', result: 'abgeschossen',
+      lead: 'Ein Würfel-Duell auf Kästchenpapier. Würfle, zieh deinen Laser Feld für Feld weiter und schieß die drei gegnerischen Jets ab.',
+      rule1: 'Jeder Jet hat einen Laser, der an seiner Nase beginnt.',
+      hitYou: 'Treffer! Du hast einen Jet abgeschossen.', hitCpu: 'Autsch! Der Computer hat einen deiner Jets abgeschossen.',
+      hitPvp: n => `Treffer! ${n} schießt einen Jet ab.`
+    },
+    kids: {
+      word: 'Küsschen', piece: 'Kind', pieces: 'Kinder', start: [1.42, 1.0], sides: ['Team Buben', 'Team Mädchen'],
+      lineDer: 'Die Küsschen-Spur', lineDen: 'deine Küsschen-Spur', one: 'Ein Kind auf der anderen Seite', passive: 'verliebt gemacht', result: 'verliebt',
+      lead: 'Ein Würfel-Duell auf Kästchenpapier. Würfle, schick deine Küsschen Feld für Feld los und mach alle drei Kinder auf der anderen Seite verliebt.',
+      rule1: 'Jedes Kind schickt eine Küsschen-Spur los, die direkt bei ihm beginnt.',
+      hitYou: 'Küsschen angekommen! Ein Kind ist jetzt verliebt.', hitCpu: 'Oh! Ein Küsschen vom Computer hat eines deiner Kinder verliebt gemacht.',
+      hitPvp: n => `Küsschen! ${n} macht ein Kind verliebt.`
+    },
+    ufo: {
+      word: 'UFOs', piece: 'UFO', pieces: 'UFOs', start: 1.36, sides: ['Blau', 'Rot'],
+      lineDer: 'Der Strahl', lineDen: 'deinen Strahl', one: 'Ein gegnerisches UFO', passive: 'abgeschossen', result: 'abgestürzt',
+      lead: 'Ein Würfel-Duell auf Kästchenpapier. Würfle, lenk deinen Strahl Feld für Feld weiter und hol die drei gegnerischen UFOs vom Himmel.',
+      rule1: 'Jedes UFO hat einen Strahl, der an seinem Rand beginnt.',
+      hitYou: 'Treffer! Ein UFO stürzt ab.', hitCpu: 'Autsch! Der Computer hat eines deiner UFOs abgeschossen.',
+      hitPvp: n => `Treffer! ${n} holt ein UFO vom Himmel.`
+    },
+    pirates: {
+      word: 'Piraten', piece: 'Schiff', pieces: 'Schiffe', start: 1.45, sides: ['Blau', 'Rot'],
+      lineDer: 'Die Kanonenspur', lineDen: 'deine Kanonenspur', one: 'Ein gegnerisches Schiff', passive: 'versenkt', result: 'versenkt',
+      lead: 'Ein Würfel-Duell auf Kästchenpapier. Würfle, zieh deine Kanonenspur Feld für Feld weiter und versenk die drei gegnerischen Schiffe.',
+      rule1: 'Jedes Schiff hat eine Kanonenspur, die an seinem Bug beginnt.',
+      hitYou: 'Volltreffer! Du hast ein Schiff versenkt.', hitCpu: 'Autsch! Der Computer hat eines deiner Schiffe versenkt.',
+      hitPvp: n => `Volltreffer! ${n} versenkt ein Schiff.`
+    }
+  };
+  function T() { return THEMES[settings.theme] || THEMES.jets; }
+  const piecesWord = k => `${k} ${k === 1 ? T().piece : T().pieces}`;
 
   /* ---------- Regeln ---------- */
   const tipOf = (S, j) => { const p = S.jets[j].path; return p.length ? p[p.length - 1] : LAYOUT[j].nose; };
@@ -422,14 +482,16 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
     return p + 0.01 * (7 - d);
   }
   function evaluate(S, me) {
-    let myMax = 0, mySum = 0, enMax = 0, enSum = 0;
+    let myMax = 0, mySum = 0, enMax = 0, enSum = 0, myNear = 0, enNear = 0;
     for (let j = 0; j < 6; j++) {
       if (!S.jets[j].alive) continue;
-      const p = pHit(bfsDist(S, j));
-      if (owner(j) === me) { mySum += p; if (p > myMax) myMax = p; }
-      else { enSum += p; if (p > enMax) enMax = p; }
+      const d = bfsDist(S, j), p = pHit(d);
+      const near = d === Infinity ? 0 : (30 - Math.min(d, 30)) / 30;
+      if (owner(j) === me) { mySum += p; myNear += near; if (p > myMax) myMax = p; }
+      else { enSum += p; enNear += near; if (p > enMax) enMax = p; }
     }
-    return 30 * myMax + 8 * mySum - 45 * enMax - 12 * enSum;
+    // Trefferchancen im nächsten Wurf plus ein Anreiz, sich auch aus der Ferne anzunähern
+    return 30 * myMax + 8 * mySum - 45 * enMax - 12 * enSum + 7 * myNear - 3 * enNear;
   }
   function aiPlan(S) {
     const me = S.current, roll = S.roll, leaves = [];
@@ -475,7 +537,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
     let s = settings.starter === 'r' ? (Math.random() < 0.5 ? 0 : 1) : Number(settings.starter);
     st = newState(s);
     kbJet = -1; particles.length = 0;
-    st.flash = settings.mode === 'cpu' ? (s === 1 ? 'Du beginnst.' : 'Der Computer beginnt.') : `${sideName(s)} beginnt.`;
+    st.flash = settings.mode === 'cpu' ? (!isAI(s) ? 'Du beginnst.' : 'Der Computer beginnt.') : `${sideName(s)} beginnt.`;
     hideAll();
     updatePanel();
     maybeAI();
@@ -506,7 +568,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       if (!anyMoves(st, me, st.roll)) {
         if (!anyMoves(st, me) && !anyMoves(st, opp)) { finishByCount(); return; }
         st.phase = 'pass';
-        st.flash = `${sideName(me)} ${me === 1 && settings.mode === 'cpu' ? 'kannst' : 'kann'} mit einer ${st.roll} nicht ziehen. Der Zug verfällt.`;
+        st.flash = `${sideName(me)} ${!isAI(me) && settings.mode === 'cpu' ? 'kannst' : 'kann'} mit einer ${st.roll} nicht ziehen. Der Zug verfällt.`;
         updatePanel();
         later(() => { st.current = opp; st.phase = 'roll'; updatePanel(); maybeAI(); }, 1500);
         return;
@@ -546,16 +608,16 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
     if (m.hit >= 0) {
       explode(m.hit);
       st.flash = settings.mode === 'cpu'
-        ? (st.current === 1 ? 'Treffer! Du hast einen Jet abgeschossen.' : 'Autsch! Der Computer hat einen deiner Jets getroffen.')
-        : `Treffer! ${sideName(st.current)} schießt einen Jet ab.`;
+        ? (!isAI(st.current) ? T().hitYou : T().hitCpu)
+        : T().hitPvp(sideName(st.current));
       endMove(true);
       return true;
     }
     tone(380 + (st.roll - st.stepsLeft) * 70, 0.07, 'square', 0.035);
     if (st.stepsLeft <= 0 || legalSteps(st, j, st.stepsLeft).length === 0) {
       if (st.stepsLeft > 0) st.flash = legalSteps(st, j).some(m => m.hit >= 0)
-        ? 'Treffer nur mit der genauen Zahl. Der Laser bleibt vor dem Jet stehen.'
-        : 'Der Laser steckt fest. Der Zug endet früher.';
+        ? `Treffer nur mit der genauen Zahl. ${T().lineDer} bleibt davor stehen.`
+        : `${T().lineDer} steckt fest. Der Zug endet früher.`;
       endMove(false);
       return true;
     }
@@ -603,12 +665,13 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   function showResult() {
     const w = st.winner;
     let title, text;
-    if (w === -1) { title = 'Unentschieden'; text = 'Keiner kommt mehr weiter, und beide haben gleich viele Jets übrig.'; }
+    const t = T();
+    if (w === -1) { title = 'Unentschieden'; text = `Keiner kommt mehr weiter, und beide haben gleich viele ${t.pieces} übrig.`; }
     else if (settings.mode === 'cpu') {
-      title = w === 1 ? 'Du gewinnst!' : 'Der Computer gewinnt';
-      text = w === 1 ? 'Alle gegnerischen Jets sind abgeschossen. Sauber geflogen.' : 'Diesmal war der Computer schneller. Noch eine Runde?';
-    } else { title = `${sideName(w)} gewinnt!`; text = `${sideName(w)} hat die gegnerische Staffel besiegt.`; }
-    if (st.byCount && w >= 0) text = 'Kein Laser kommt mehr weiter. Gewonnen hat, wer mehr Jets übrig hat.';
+      title = !isAI(w) ? 'Du gewinnst!' : 'Der Computer gewinnt';
+      text = !isAI(w) ? `Alle gegnerischen ${t.pieces} sind ${t.result}. Stark gespielt!` : 'Diesmal war der Computer schneller. Noch eine Runde?';
+    } else { title = `${sideName(w)} gewinnt!`; text = `Alle gegnerischen ${t.pieces} sind ${t.result}.`; }
+    if (st.byCount && w >= 0) text = `Keine Linie kommt mehr weiter. Gewonnen hat, wer mehr ${t.pieces} übrig hat.`;
     resultTitle.textContent = title;
     resultTitle.style.color = w === 0 ? 'var(--blue)' : w === 1 ? 'var(--red)' : 'var(--ink)';
     resultText.textContent = text;
@@ -644,16 +707,42 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   const PIPS = { 1: [4], 2: [2, 6], 3: [2, 4, 6], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8] };
   function showFace(v) { [...dieEl.children].forEach((s, i) => s.classList.toggle('on', PIPS[v].includes(i))); }
 
-  function jetSVG(side, alive, killer) {
-    const col = side === 0 ? 'var(--blue)' : 'var(--red)';
-    const xcol = killer === 0 ? 'var(--blue)' : 'var(--red)';
-    const polys = POLYS.map(p => `<polygon points="${p.map(q => q.join(',')).join(' ')}"/>`).join('');
-    return `<svg class="mini${alive ? '' : ' dead'}" viewBox="-1.6 -1.6 3.2 3.2" aria-hidden="true">` +
-      `<g${side === 0 ? ' transform="rotate(180)"' : ''} fill="var(--paper)" stroke="var(--ink)" stroke-width="0.1" stroke-linejoin="round">${polys}` +
-      `<ellipse cx="0" cy="-0.55" rx="0.13" ry="0.27" fill="${col}" stroke="none"/></g>` +
-      (alive ? '' : `<path d="M-1.3 -1.3L1.3 1.3M1.3 -1.3L-1.3 1.3" stroke="${xcol}" stroke-width="0.22" stroke-linecap="round"/>`) +
-      `</svg>`;
+  // Kleine Figuren-Bilder fürs Panel und Menü, mit derselben Zeichenfunktion wie das Spielfeld
+  const iconCache = new Map();
+  function iconURL(theme, side, alive, killer, upright) {
+    const key = [theme, side, alive, killer, upright, C.paper, C.ink, C.blue, C.red].join('|');
+    if (iconCache.has(key)) return iconCache.get(key);
+    const cnv = document.createElement('canvas');
+    cnv.width = cnv.height = 100;
+    drawPiece(cnv.getContext('2d'), theme, 50, 50, 31, side, alive, killer, upright);
+    const url = cnv.toDataURL();
+    iconCache.set(key, url);
+    return url;
   }
+  function refreshThemeUI() {
+    const t = T();
+    $('logoWord').textContent = t.word; $('menuWord').textContent = t.word;
+    $('menuLead').textContent = t.lead;
+    canvas.setAttribute('aria-label', `Spielfeld: Kästchenpapier mit drei ${t.pieces} von ${t.sides[0]} oben und drei ${t.pieces} von ${t.sides[1]} unten`);
+    $('rulesList').innerHTML = [
+      `Jeder Spieler hat drei ${t.pieces}: <b>${t.sides[0]}</b> oben, <b>${t.sides[1]}</b> unten. ${t.rule1}`,
+      `Würfle. Wähle dann eine deiner Figuren und zieh ihre Linie <b>genau so viele Kästchen</b> weiter, wie der Würfel zeigt. Die Linie geht dort weiter, wo sie zuletzt aufgehört hat.`,
+      'Gezogen wird Kästchen für Kästchen: geradeaus oder um die Ecke, nie schräg.',
+      `Linien dürfen sich nicht kreuzen, nicht durch die eigenen ${t.pieces} gehen und nicht über den Rand.`,
+      `${t.one} (gestrichelter Rahmen) wird nur mit der <b>genauen Würfelzahl</b> ${t.passive}: Der <b>letzte</b> Schritt deines Wurfs muss in eines seiner Kästchen führen. Würfelst du mehr, kommst du nicht hindurch und musst anders ziehen, zum Beispiel mit einem Umweg.`,
+      'Bei einer <b>Sechs</b> darfst du nach deinem Zug noch einmal würfeln.',
+      'Kommt eine Linie nicht mehr weiter, endet der Zug früher. Kann ein Spieler gar nicht ziehen, verfällt sein Zug.',
+      `Wer zuerst alle drei gegnerischen ${t.pieces} ${t.passive} hat, gewinnt. Können beide nicht mehr ziehen, gewinnt, wer mehr ${t.pieces} übrig hat.`
+    ].map(x => `<li>${x}</li>`).join('');
+    $('icJets').src = iconURL('jets', 1, true, -1, true);
+    $('icKids0').src = iconURL('kids', 0, true, -1, true);
+    $('icKids1').src = iconURL('kids', 1, true, -1, true);
+    $('icUfo').src = iconURL('ufo', 1, true, -1, true);
+    $('icPirates').src = iconURL('pirates', 1, true, -1, true);
+    syncMenu();
+    updatePanel();
+  }
+  function colorsChanged() { readColors(); iconCache.clear(); refreshThemeUI(); }
 
   function updatePanel() {
     if (!st) return;
@@ -663,9 +752,9 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       const turn = st.phase !== 'over' && st.current === side;
       card.classList.toggle('turn', turn);
       const alive = aliveCount(st, side);
-      $('tag' + side).textContent = st.phase === 'over' ? (st.winner === side ? 'gewonnen' : `${alive} Jet${alive === 1 ? '' : 's'} übrig`) : turn ? 'am Zug' : `${alive} Jet${alive === 1 ? '' : 's'} übrig`;
+      $('tag' + side).textContent = st.phase === 'over' ? (st.winner === side ? 'gewonnen' : `${piecesWord(alive)} übrig`) : turn ? 'am Zug' : `${piecesWord(alive)} übrig`;
       let html = '';
-      for (let j = side * 3; j < side * 3 + 3; j++) html += jetSVG(side, st.jets[j].alive, st.jets[j].killer);
+      for (let j = side * 3; j < side * 3 + 3; j++) html += `<img class="mini" alt="" src="${iconURL(settings.theme, side, st.jets[j].alive, st.jets[j].killer, false)}">`;
       $('jets' + side).innerHTML = html;
     }
     const me = st.current;
@@ -684,7 +773,7 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
 
     // Statuszeile
     const name = `<b style="color:${me === 0 ? 'var(--blue)' : 'var(--red)'}">${sideName(me)}</b>`;
-    const you = settings.mode === 'cpu' && me === 1;
+    const you = settings.mode === 'cpu' && !isAI(me);
     let text = '';
     if (st.phase === 'roll') text = isAI(me) ? 'Der Computer würfelt gleich …' : you ? 'Du bist dran: würfeln!' : `${name} ist dran: würfeln!`;
     else if (st.phase === 'rolling') text = 'Der Würfel rollt …';
@@ -692,10 +781,10 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       const k = st.stepsLeft;
       const f = `${k} Kästchen`;
       if (isAI(me)) text = `Der Computer zieht ${st.roll} Kästchen …`;
-      else if (st.active < 0) text = `${you ? 'Du hast' : name + ' hat'} eine <b>${st.roll}</b>. Tippe auf einen markierten Punkt vor einem deiner Jets.`;
+      else if (st.active < 0) text = `${you ? 'Du hast' : name + ' hat'} eine <b>${st.roll}</b>. Tippe auf einen markierten Punkt, um ${T().lineDen} zu ziehen.`;
       else text = `Noch <b>${f}</b>. Tippe oder wische über die markierten Punkte.`;
     } else if (st.phase === 'pass') text = '';
-    else if (st.phase === 'over') text = st.winner === -1 ? 'Unentschieden.' : `<b>${sideName(st.winner)}</b> ${settings.mode === 'cpu' && st.winner === 1 ? 'gewinnst' : 'gewinnt'}!`;
+    else if (st.phase === 'over') text = st.winner === -1 ? 'Unentschieden.' : `<b>${sideName(st.winner)}</b> ${settings.mode === 'cpu' && !isAI(st.winner) ? 'gewinnst' : 'gewinnt'}!`;
     statusEl.innerHTML = (st.flash ? `<b>${st.flash}</b> ` : '') + text;
 
     tallyEl.textContent = `Siege in dieser Sitzung: ${sideName(0)} ${tally[0]} · ${sideName(1)} ${tally[1]}`;
@@ -711,8 +800,8 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
     for (const k of ['paper', 'grid', 'edge', 'ink', 'blue', 'red', 'spark', 'muted']) C[k] = cs.getPropertyValue('--' + k).trim();
   }
   readColors();
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', readColors);
-  new MutationObserver(readColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => colorsChanged());
+  new MutationObserver(() => colorsChanged()).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
 
   function resize() {
     const narrow = window.matchMedia('(max-width: 760px)').matches;
@@ -733,62 +822,241 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   const cx = i => (colOf(i) + 0.5) * cell;
   const cy = i => (rowOf(i) + 0.5) * cell;
 
+  // Startpunkt der Linie am Rand der Figur (Richtung Gegner)
   function noseXY(j) {
     const L = LAYOUT[j];
-    const x = (L.left + 1.5) * cell, y = (L.top + 1.5) * cell;
-    return { x, y: owner(j) === 0 ? y + 1.45 * cell : y - 1.45 * cell };
+    const x = (L.left + 1.5) * cell, y = (L.top + 1.5) * cell, s = T().start, d = (Array.isArray(s) ? s[owner(j)] : s) * cell;
+    return { x, y: owner(j) === 0 ? y + d : y - d };
   }
 
-  function drawLaser(j) {
+  function heartPath(g, x, y, s) {
+    g.moveTo(x, y + 0.36 * s);
+    g.bezierCurveTo(x - 0.62 * s, y - 0.02 * s, x - 0.36 * s, y - 0.52 * s, x, y - 0.2 * s);
+    g.bezierCurveTo(x + 0.36 * s, y - 0.52 * s, x + 0.62 * s, y - 0.02 * s, x, y + 0.36 * s);
+    g.closePath();
+  }
+
+  function strokePoly(g, pts) {
+    g.beginPath(); g.moveTo(pts[0].x, pts[0].y);
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i].x, pts[i].y);
+    g.stroke();
+  }
+
+  function drawLine(j) {
     const path = st.jets[j].path;
     if (!path.length) return;
+    const theme = settings.theme, col = sideColor(owner(j)), c = cell;
+    const wob = theme === 'jets' || theme === 'pirates' ? 0.07 : 0.03;
     const pts = [noseXY(j)];
-    for (const n of path) pts.push({ x: cx(n) + hash(n, 1) * cell * 0.07, y: cy(n) + hash(n, 2) * cell * 0.07 });
+    for (const n of path) pts.push({ x: cx(n) + hash(n, 1) * c * wob, y: cy(n) + hash(n, 2) * c * wob });
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-    ctx.strokeStyle = sideColor(owner(j));
-    ctx.lineWidth = Math.max(3, cell * 0.17);
-    ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-    ctx.stroke();
-    // Marker-Glanz
-    ctx.globalAlpha = 0.28; ctx.strokeStyle = C.paper; ctx.lineWidth = Math.max(1, cell * 0.045);
-    ctx.beginPath(); ctx.moveTo(pts[0].x - cell * 0.03, pts[0].y);
-    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x - cell * 0.03, pts[i].y - cell * 0.02);
-    ctx.stroke(); ctx.globalAlpha = 1;
+    ctx.strokeStyle = col;
+    if (theme === 'kids') {
+      // gepunktete Spur mit einem Herz pro Kästchen
+      ctx.lineWidth = Math.max(1.5, c * 0.06);
+      ctx.setLineDash([c * 0.1, c * 0.14]);
+      ctx.globalAlpha = 0.75; strokePoly(ctx, pts); ctx.globalAlpha = 1;
+      ctx.setLineDash([]);
+      ctx.fillStyle = col;
+      for (let i = 1; i < pts.length; i++) {
+        const n = path[i - 1];
+        if (st.cells[n] >= 10) continue; // im getroffenen Kind kein Herz zeichnen
+        ctx.beginPath(); heartPath(ctx, pts[i].x, pts[i].y + c * 0.03, c * 0.52); ctx.fill();
+      }
+    } else if (theme === 'ufo') {
+      // breiter, leuchtender Strahl mit hellem Kern
+      ctx.globalAlpha = 0.22; ctx.lineWidth = c * 0.62; strokePoly(ctx, pts);
+      ctx.globalAlpha = 1; ctx.lineWidth = Math.max(2, c * 0.13); strokePoly(ctx, pts);
+      ctx.strokeStyle = C.paper; ctx.globalAlpha = 0.6; ctx.lineWidth = Math.max(1, c * 0.04); strokePoly(ctx, pts);
+      ctx.globalAlpha = 1;
+    } else if (theme === 'pirates') {
+      // gestrichelte Flugbahn, Kanonenkugel an der Spitze
+      ctx.lineWidth = Math.max(2.5, c * 0.12);
+      ctx.setLineDash([c * 0.3, c * 0.18]);
+      strokePoly(ctx, pts);
+      ctx.setLineDash([]);
+      const tip = pts[pts.length - 1];
+      if (st.cells[path[path.length - 1]] < 10) {
+        ctx.fillStyle = '#2a2a2e';
+        ctx.beginPath(); ctx.arc(tip.x, tip.y, c * 0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,.55)';
+        ctx.beginPath(); ctx.arc(tip.x - c * 0.06, tip.y - c * 0.06, c * 0.05, 0, Math.PI * 2); ctx.fill();
+      }
+    } else {
+      ctx.lineWidth = Math.max(3, c * 0.17);
+      strokePoly(ctx, pts);
+      ctx.globalAlpha = 0.28; ctx.strokeStyle = C.paper; ctx.lineWidth = Math.max(1, c * 0.045);
+      strokePoly(ctx, pts.map(p => ({ x: p.x - c * 0.03, y: p.y - c * 0.02 })));
+      ctx.globalAlpha = 1;
+    }
   }
 
-  function drawJet(j) {
-    const L = LAYOUT[j], o = owner(j), J = st.jets[j];
-    const x = (L.left + 1.5) * cell, y = (L.top + 1.5) * cell;
-    ctx.save();
-    ctx.translate(x, y);
-    if (o === 0) ctx.rotate(Math.PI);
-    ctx.scale(cell, cell);
-    ctx.globalAlpha = J.alive ? 1 : 0.42;
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = Math.max(0.06, 1.6 / cell);
-    ctx.strokeStyle = C.ink; ctx.fillStyle = C.paper;
-    for (const p of POLYS) {
-      ctx.beginPath(); ctx.moveTo(p[0][0], p[0][1]);
-      for (let i = 1; i < p.length; i++) ctx.lineTo(p[i][0], p[i][1]);
-      ctx.closePath(); ctx.fill(); ctx.stroke();
+  /* --- Figuren: Einheit = 1 Kästchen, Ursprung = Mitte, Vorderseite zeigt nach oben (−y) --- */
+  const DARK = '#1a2130';
+  function poly(g, pts) {
+    g.beginPath(); g.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+    g.closePath(); g.fill(); g.stroke();
+  }
+  function circle(g, x, y, r, fill, stroke) {
+    g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2);
+    if (fill) g.fill();
+    if (stroke) g.stroke();
+  }
+
+  const DRAW = {
+    jets(g, col) {
+      g.fillStyle = C.paper;
+      for (const p of POLYS) poly(g, p);
+      g.fillStyle = col;
+      g.beginPath(); g.ellipse(0, -0.55, 0.12, 0.27, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillRect(-0.09, 0.2, 0.18, 0.5);
+      poly(g, [[-0.26, 0.98], [0.26, 0.98], [0.16, 1.1], [-0.16, 1.1]]);
+      for (const sx of [-1.3, 1.3]) circle(g, sx, 0.42, 0.07, true);
+    },
+
+    kids(g, col, side) {
+      const girl = side === 1;
+      const hair = girl ? '#a8562a' : '#6b4423';
+      // Oberkörper (Shirt bzw. Kleid in Teamfarbe)
+      g.fillStyle = col;
+      g.beginPath();
+      g.moveTo(girl ? -1.2 : -1.08, 1.42); g.lineTo(-1.0, 0.75);
+      g.quadraticCurveTo(-0.95, 0.3, -0.4, 0.27); g.lineTo(0.4, 0.27);
+      g.quadraticCurveTo(0.95, 0.3, 1.0, 0.75); g.lineTo(girl ? 1.2 : 1.08, 1.42);
+      g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#ffffff';
+      if (girl) { g.beginPath(); g.moveTo(-0.38, 0.28); g.quadraticCurveTo(0, 0.62, 0.38, 0.28); g.closePath(); g.fill(); g.stroke(); }
+      else { poly(g, [[-0.34, 0.28], [0, 0.55], [0.34, 0.28]]); }
+      // Zöpfe hinter dem Kopf
+      if (girl) { g.fillStyle = hair; circle(g, -0.74, -0.28, 0.3, true, true); circle(g, 0.74, -0.28, 0.3, true, true); }
+      // Kopf
+      g.fillStyle = '#f5d0aa';
+      circle(g, 0, -0.38, 0.6, true, true);
+      // Haare
+      g.fillStyle = hair;
+      g.beginPath(); g.arc(0, -0.38, 0.63, Math.PI, Math.PI * 2);
+      if (girl) {
+        g.quadraticCurveTo(0.35, -0.55, 0, -0.66); g.quadraticCurveTo(-0.35, -0.55, -0.63, -0.38);
+      } else {
+        g.lineTo(0.5, -0.52); g.lineTo(0.33, -0.66); g.lineTo(0.16, -0.55); g.lineTo(-0.04, -0.72);
+        g.lineTo(-0.22, -0.56); g.lineTo(-0.42, -0.7); g.lineTo(-0.55, -0.5);
+      }
+      g.closePath(); g.fill(); g.stroke();
+      if (girl) {
+        g.fillStyle = col;
+        for (const sx of [-1, 1]) poly(g, [[sx * 0.62, -0.62], [sx * 0.9, -0.78], [sx * 0.9, -0.46]]);
+      }
+      // Gesicht: Augen, Bäckchen, Kussmund
+      g.fillStyle = DARK;
+      circle(g, -0.2, -0.36, 0.065, true); circle(g, 0.2, -0.36, 0.065, true);
+      g.fillStyle = 'rgba(255, 105, 130, .45)';
+      circle(g, -0.36, -0.2, 0.1, true); circle(g, 0.36, -0.2, 0.1, true);
+      const lw = g.lineWidth;
+      g.strokeStyle = '#c2185b'; g.lineWidth = 0.055;
+      circle(g, 0, -0.12, 0.07, false, true);
+      g.lineWidth = lw; g.strokeStyle = C.ink;
+      // fliegendes Küsschen
+      g.fillStyle = col;
+      g.beginPath(); heartPath(g, 0.68, -1.12, 0.46); g.fill();
+    },
+
+    ufo(g, col) {
+      g.fillStyle = C.paper;
+      circle(g, 0, 0, 1.36, true, false);
+      const a = g.globalAlpha;
+      g.globalAlpha = a * 0.2; g.fillStyle = col; circle(g, 0, 0, 1.36, true, false); g.globalAlpha = a;
+      circle(g, 0, 0, 1.36, false, true);
+      circle(g, 0, 0, 0.95, false, true);
+      g.fillStyle = col;
+      for (let k = 0; k < 8; k++) {
+        const ang = k * Math.PI / 4 + Math.PI / 8;
+        circle(g, Math.cos(ang) * 1.16, Math.sin(ang) * 1.16, 0.1, true, true);
+      }
+      // Glaskuppel mit Alien
+      g.fillStyle = C.paper; circle(g, 0, 0, 0.62, true, false);
+      g.globalAlpha = a * 0.3; g.fillStyle = '#7fd3ff'; circle(g, 0, 0, 0.62, true, false); g.globalAlpha = a;
+      circle(g, 0, 0, 0.62, false, true);
+      g.fillStyle = '#86d16a';
+      g.beginPath(); g.moveTo(-0.1, -0.24); g.lineTo(-0.22, -0.48); g.moveTo(0.1, -0.24); g.lineTo(0.22, -0.48); g.stroke();
+      circle(g, -0.22, -0.48, 0.055, true, true); circle(g, 0.22, -0.48, 0.055, true, true);
+      g.beginPath(); g.ellipse(0, 0.04, 0.3, 0.35, 0, 0, Math.PI * 2); g.fill(); g.stroke();
+      g.fillStyle = DARK;
+      g.beginPath(); g.ellipse(-0.12, -0.01, 0.075, 0.13, 0.45, 0, Math.PI * 2); g.fill();
+      g.beginPath(); g.ellipse(0.12, -0.01, 0.075, 0.13, -0.45, 0, Math.PI * 2); g.fill();
+    },
+
+    pirates(g, col) {
+      const hull = () => {
+        g.beginPath(); g.moveTo(0, -1.45);
+        g.quadraticCurveTo(0.9, -0.85, 0.82, 0.25); g.lineTo(0.72, 1.32); g.lineTo(-0.72, 1.32);
+        g.lineTo(-0.82, 0.25); g.quadraticCurveTo(-0.9, -0.85, 0, -1.45); g.closePath();
+      };
+      // Kanonen
+      g.fillStyle = '#2a2a2e';
+      for (const sx of [-1, 1]) { g.fillRect(sx > 0 ? 0.74 : -0.98, -0.28, 0.24, 0.13); g.fillRect(sx > 0 ? 0.66 : -0.9, 0.55, 0.24, 0.13); }
+      g.fillStyle = '#a8743f'; hull(); g.fill(); g.stroke();
+      g.save(); g.scale(0.78, 0.86); g.fillStyle = '#d8a86a'; hull(); g.fill(); g.restore();
+      const lw = g.lineWidth;
+      g.strokeStyle = 'rgba(95, 58, 25, .45)'; g.lineWidth = 0.04;
+      g.beginPath(); g.moveTo(-0.22, -0.75); g.lineTo(-0.22, 1.1); g.moveTo(0.22, -0.75); g.lineTo(0.22, 1.1); g.stroke();
+      g.strokeStyle = C.ink; g.lineWidth = lw;
+      g.fillStyle = '#5a3a1a'; circle(g, 0, -0.52, 0.09, true); circle(g, 0, 0.48, 0.09, true);
+      // Segel
+      g.fillStyle = '#fbf7ee';
+      const sail = (y, w) => {
+        g.beginPath(); g.moveTo(-w, y); g.quadraticCurveTo(0, y - 0.4, w, y);
+        g.lineTo(w, y + 0.13); g.quadraticCurveTo(0, y - 0.25, -w, y + 0.13); g.closePath(); g.fill(); g.stroke();
+      };
+      sail(-0.48, 0.78); sail(0.52, 1.02);
+      // Flagge am Heck
+      g.fillStyle = col;
+      poly(g, [[0.02, 1.08], [0.52, 1.1], [0.46, 1.25], [0.52, 1.4], [0.02, 1.4]]);
+      g.fillStyle = '#ffffff'; circle(g, 0.24, 1.23, 0.065, true);
     }
-    const col = sideColor(o);
-    ctx.fillStyle = col;
-    ctx.beginPath(); ctx.ellipse(0, -0.55, 0.12, 0.27, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-    ctx.fillRect(-0.09, 0.2, 0.18, 0.5);
-    ctx.beginPath(); ctx.moveTo(-0.26, 0.98); ctx.lineTo(0.26, 0.98); ctx.lineTo(0.16, 1.1); ctx.lineTo(-0.16, 1.1); ctx.closePath(); ctx.fill();
-    for (const sx of [-1.3, 1.3]) { ctx.beginPath(); ctx.arc(sx, 0.42, 0.07, 0, Math.PI * 2); ctx.fill(); }
-    ctx.restore();
-    if (!J.alive) {
-      ctx.strokeStyle = sideColor(J.killer >= 0 ? J.killer : 1 - o);
-      ctx.lineWidth = Math.max(3, cell * 0.14); ctx.lineCap = 'round';
-      const r = cell * 1.25, w = cell * 0.12;
-      ctx.beginPath();
-      ctx.moveTo(x - r, y - r + w); ctx.quadraticCurveTo(x, y + w, x + r, y + r);
-      ctx.moveTo(x + r - w, y - r); ctx.quadraticCurveTo(x - w, y, x - r, y + r - w);
-      ctx.stroke();
+  };
+
+  function drawPiece(g, theme, x, y, c, side, alive, killer, upright) {
+    const kcol = sideColor(killer >= 0 ? killer : 1 - side);
+    g.save();
+    g.translate(x, y);
+    // Kinder stehen immer aufrecht, alle anderen Figuren zeigen zum Gegner
+    if (side === 0 && !upright && theme !== 'kids') g.rotate(Math.PI);
+    if (!alive && theme === 'pirates') g.rotate(0.35);
+    g.scale(c, c);
+    g.globalAlpha = alive ? 1 : 0.42;
+    g.lineJoin = 'round'; g.lineCap = 'round';
+    g.lineWidth = Math.max(0.06, 1.6 / c);
+    g.strokeStyle = C.ink;
+    (DRAW[theme] || DRAW.jets)(g, sideColor(side), side);
+    g.restore();
+    if (alive) return;
+    // Markierung für getroffene Figuren
+    g.save();
+    g.strokeStyle = kcol; g.fillStyle = kcol; g.lineCap = 'round'; g.lineJoin = 'round';
+    if (theme === 'kids') {
+      g.globalAlpha = 0.28; g.beginPath(); heartPath(g, x, y + c * 0.1, c * 2.5); g.fill();
+      g.globalAlpha = 1; g.lineWidth = Math.max(2, c * 0.1); g.beginPath(); heartPath(g, x, y + c * 0.1, c * 2.5); g.stroke();
+    } else if (theme === 'pirates') {
+      g.lineWidth = Math.max(2, c * 0.11);
+      for (let k = 0; k < 3; k++) {
+        const yy = y + (k - 0.6) * c * 0.6;
+        g.beginPath();
+        for (let i = 0; i <= 24; i++) {
+          const xx = x - 1.4 * c + (i / 24) * 2.8 * c, w = yy + Math.sin(i / 24 * Math.PI * 4 + k) * c * 0.1;
+          i ? g.lineTo(xx, w) : g.moveTo(xx, w);
+        }
+        g.stroke();
+      }
+    } else {
+      g.lineWidth = Math.max(3, c * 0.14);
+      const r = c * 1.25, w = c * 0.12;
+      g.beginPath();
+      g.moveTo(x - r, y - r + w); g.quadraticCurveTo(x, y + w, x + r, y + r);
+      g.moveTo(x + r - w, y - r); g.quadraticCurveTo(x - w, y, x - r, y + r - w);
+      g.stroke();
     }
+    g.restore();
   }
 
   let hoverCell = -1;
@@ -796,12 +1064,20 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   function explode(j) {
     const L = LAYOUT[j];
     const x = (L.left + 1.5) * cell, y = (L.top + 1.5) * cell;
-    boom();
+    hitSound();
     if (reduceMotion()) return;
-    const cols = [C.spark, sideColor(owner(j)), C.ink, '#ff7a1a'];
-    for (let i = 0; i < 46; i++) {
-      const a = Math.random() * Math.PI * 2, s = (0.5 + Math.random() * 2.4) * cell * 0.09;
-      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1, size: (0.08 + Math.random() * 0.14) * cell, color: cols[i % cols.length] });
+    const theme = settings.theme, col = sideColor(owner(j));
+    const cols = theme === 'kids' ? ['#ff4d7a', '#ff8fab', col, '#e0115f']
+      : theme === 'pirates' ? ['#4ea3e0', '#ffffff', '#2a74c2', C.spark]
+      : theme === 'ufo' ? [C.spark, '#86d16a', col, '#ff7a1a']
+      : [C.spark, col, C.ink, '#ff7a1a'];
+    const count = theme === 'kids' ? 22 : 46;
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2, s = (0.5 + Math.random() * 2.4) * cell * (theme === 'kids' ? 0.06 : 0.09);
+      particles.push({
+        x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - (theme === 'kids' ? cell * 0.04 : 0),
+        life: 1, size: (0.08 + Math.random() * 0.14) * cell, color: cols[i % cols.length], heart: theme === 'kids'
+      });
     }
   }
 
@@ -829,8 +1105,11 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
     }
     ctx.setLineDash([]); ctx.globalAlpha = 1;
 
-    for (let j = 0; j < 6; j++) drawLaser(j);
-    for (let j = 0; j < 6; j++) drawJet(j);
+    for (let j = 0; j < 6; j++) drawLine(j);
+    for (let j = 0; j < 6; j++) {
+      const L = LAYOUT[j], J = st.jets[j];
+      drawPiece(ctx, settings.theme, (L.left + 1.5) * c, (L.top + 1.5) * c, c, owner(j), J.alive, J.killer, false);
+    }
 
     // Laserspitzen der Jets, die noch ziehen können
     if (st.phase === 'move' || st.phase === 'roll') {
@@ -873,7 +1152,10 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       p.x += p.vx; p.y += p.vy; p.vx *= 0.94; p.vy *= 0.94; p.life -= 0.022;
       if (p.life <= 0) { particles.splice(i, 1); continue; }
       ctx.globalAlpha = Math.max(0, p.life); ctx.fillStyle = p.color;
-      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath();
+      if (p.heart) heartPath(ctx, p.x, p.y, p.size * 2.2 * (0.4 + 0.6 * p.life));
+      else ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
     requestAnimationFrame(frame);
@@ -893,6 +1175,11 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(g).connect(actx.destination); o.start(t); o.stop(t + dur + 0.02);
     } catch (e) { /* kein Ton verfügbar */ }
+  }
+  function hitSound() {
+    if (settings.theme === 'kids') { tone(1250, 0.07, 'sine', 0.09); setTimeout(() => tone(760, 0.16, 'sine', 0.07), 70); return; }
+    if (settings.theme === 'ufo') { tone(1500, 0.18, 'sawtooth', 0.04); }
+    boom();
   }
   function boom() {
     if (!soundOn || !actx) return;
@@ -948,16 +1235,26 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
   });
 
   function syncMenu() {
-    const cpu = $('modeCpu').checked;
+    const cpu = $('modeCpu').checked, sides = T().sides;
+    const human = $('humanBlue').checked ? 0 : 1;
     $('levelSet').hidden = !cpu;
-    $('startRedLbl').textContent = cpu ? 'Du (Rot)' : 'Rot';
-    $('startBlueLbl').textContent = cpu ? 'Computer' : 'Blau';
+    $('sideSet').hidden = !cpu;
+    $('humanRedLbl').textContent = `${sides[1]} (unten)`;
+    $('humanBlueLbl').textContent = `${sides[0]} (oben)`;
+    $('startRedLbl').textContent = cpu ? (human === 1 ? 'Du' : 'Computer') : sides[1];
+    $('startBlueLbl').textContent = cpu ? (human === 0 ? 'Du' : 'Computer') : sides[0];
   }
-  document.querySelectorAll('input[name="mode"]').forEach(i => i.addEventListener('change', syncMenu));
+  document.querySelectorAll('input[name="mode"], input[name="human"]').forEach(i => i.addEventListener('change', syncMenu));
+  document.querySelectorAll('input[name="theme"]').forEach(i => i.addEventListener('change', () => {
+    settings.theme = i.value;
+    particles.length = 0;
+    refreshThemeUI();
+  }));
   $('menuForm').addEventListener('submit', e => {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
     settings.mode = f.get('mode'); settings.level = f.get('level'); settings.starter = f.get('starter');
+    settings.theme = f.get('theme'); settings.human = Number(f.get('human'));
     unlockAudio();
     startGame();
   });
@@ -1001,7 +1298,8 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
     $('modeCpu').checked = settings.mode === 'cpu'; $('modePvp').checked = settings.mode === 'pvp';
     ({ easy: $('lvlEasy'), mid: $('lvlMid'), hard: $('lvlHard') })[settings.level].checked = true;
     ({ '1': $('startRed'), '0': $('startBlue'), r: $('startRnd') })[settings.starter].checked = true;
-    syncMenu();
+    ({ jets: $('thJets'), kids: $('thKids'), ufo: $('thUfo'), pirates: $('thPirates') })[settings.theme].checked = true;
+    (settings.human === 0 ? $('humanBlue') : $('humanRed')).checked = true;
     resize();
     if (data.st) {
       st = data.st;
@@ -1015,12 +1313,12 @@ legend { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-sp
       if (st.roll) showFace(st.roll); else showFace(6);
       menu.hidden = !data.menuOpen;
       if (st.phase === 'over' && !data.menuOpen) later(showResult, 50);
-      updatePanel();
+      refreshThemeUI();
       if (st.phase === 'roll') maybeAI();
     } else {
       st = newState(1);
       showFace(6);
-      updatePanel();
+      refreshThemeUI();
       menu.hidden = false;
     }
     requestAnimationFrame(frame);

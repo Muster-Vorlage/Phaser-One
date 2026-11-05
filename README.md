@@ -5,9 +5,22 @@ Inspiriert von einem Papier-und-Stift-Spiel mit Jets, Würfel und Laser-Linien.
 
 **Spielen:** `index.html` im Browser öffnen. Keine Installation, kein Build.
 
+## Mottos
+
+Vor dem Spiel wählst du ein Motto. Die Regeln sind bei allen gleich, nur Figuren, Linien und Texte ändern sich:
+
+| Motto | Figuren | Linie | Treffer |
+|---|---|---|---|
+| Flugzeuge | Jets | Laser | abgeschossen |
+| Buben & Mädchen | Kinder (Team Buben / Team Mädchen) | Küsschen-Spur aus Herzen | verliebt |
+| UFOs | UFOs mit Alien | Strahl | abgestürzt |
+| Piratenschiffe | Segelschiffe | Kanonenspur | versenkt |
+
+Gegen den Computer kannst du außerdem wählen, ob du unten (Rot) oder oben (Blau) spielst.
+
 ## Regeln
 
-1. Jeder Spieler hat drei Jets: Blau oben, Rot unten. Jeder Jet hat einen Laser, der an seiner Nase beginnt.
+1. Jeder Spieler hat drei Figuren (z. B. Jets): Blau oben, Rot unten. Jede Figur hat eine Linie (z. B. einen Laser), die direkt bei ihr beginnt.
 2. Würfeln, dann einen eigenen Jet wählen und seinen Laser **genau so viele Kästchen** weiterziehen, wie der Würfel zeigt. Der Laser geht dort weiter, wo er zuletzt aufgehört hat.
 3. Gezogen wird Kästchen für Kästchen: geradeaus oder um die Ecke, nie schräg.
 4. Laser dürfen keine anderen Laser kreuzen, nicht durch eigene Jets und nicht über den Rand.
